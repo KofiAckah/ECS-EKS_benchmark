@@ -35,7 +35,11 @@ jobs:
         run: |
           for m in eks ecs ecr network; do
             echo "::group::destroy $m"
-            terraform -chdir=terraform/$m init -backend-config=../backend.hcl -input=false
+            terraform -chdir=terraform/$m init -input=false \
+              -backend-config="bucket=${STATE_BUCKET}" \
+              -backend-config="region=${AWS_REGION}" \
+              -backend-config="encrypt=true" \
+              -backend-config="use_lockfile=true"
             case "$m" in
               ecs|eks) VARS="-var=state_bucket=${STATE_BUCKET}" ;;
               *)       VARS="" ;;

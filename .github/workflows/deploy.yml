@@ -1,12 +1,16 @@
 name: Deploy (ECS + EKS)
 
-# Runs after CI succeeds on main, or manually. Deploys the SAME git-SHA image to
-# both orchestrators so the benchmark stays fair.
+# Manual-only deploy of a chosen image tag to both orchestrators. Kept manual
+# (not auto-on-push) so deploys are deliberate and never run unattended. CI
+# (ci.yml) still builds & pushes images on every push; this rolls them out.
+#
+# Backend config is passed INLINE from repo vars (no backend.hcl file needed in
+# CI). The state key comes from each module's backend{} block.
+#
+# NOTE: the EKS step uses the CI IAM role (AWS_ROLE_ARN). For `kubectl` to work
+# that role must be a cluster access entry (the cluster creator has admin by
+# default). Add one if you enable the EKS step for the CI role.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
       image_tag:
@@ -21,23 +25,13 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
   PROJECT: shopnow
+  TAG: ${{ inputs.image_tag }}
 
 jobs:
   deploy:
-    # Only run on a successful CI run (or manual dispatch).
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Resolve image tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-          fi
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -49,10 +43,12 @@ jobs:
       # ---- ECS: re-register task defs with the new image via Terraform ----
       - name: Deploy to ECS
         working-directory: terraform/ecs
-        env:
-          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          terraform init -backend-config=../backend.hcl -input=false
+          terraform init -input=false \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
           terraform apply -auto-approve -input=false \
             -var="state_bucket=${STATE_BUCKET}" \
             -var="image_tag=${TAG}"
@@ -63,8 +59,6 @@ jobs:
 
       - name: Deploy to EKS
         working-directory: kubernetes
-        env:
-          TAG: ${{ steps.tag.outputs.tag }}
         run: |
           ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
           REGISTRY="${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
