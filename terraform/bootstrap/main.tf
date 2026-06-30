@@ -27,7 +27,7 @@ provider "aws" {
 
 variable "region" {
   type    = string
-  default = "us-east-1"
+  default = "eu-west-1"
 }
 
 variable "state_bucket_name" {
@@ -61,6 +61,34 @@ resource "aws_s3_bucket_public_access_block" "state" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# Deny any non-TLS access to the state bucket (defense in depth for state that
+# may contain sensitive values). Access logging is intentionally omitted for a
+# lab state bucket (it would require a second, self-logging log bucket).
+data "aws_iam_policy_document" "state_tls_only" {
+  statement {
+    sid       = "DenyInsecureTransport"
+    effect    = "Deny"
+    actions   = ["s3:*"]
+    resources = [aws_s3_bucket.state.arn, "${aws_s3_bucket.state.arn}/*"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "state" {
+  bucket = aws_s3_bucket.state.id
+  policy = data.aws_iam_policy_document.state_tls_only.json
+
+  depends_on = [aws_s3_bucket_public_access_block.state]
 }
 
 output "state_bucket" {

@@ -1,6 +1,6 @@
 # Cost Analysis
 
-> Figures are approximate `us-east-1` on-demand rates for **illustration** — confirm against the
+> Figures are approximate `eu-west-1` on-demand rates for **illustration** — confirm against the
 > AWS Pricing Calculator for your region. The goal is the *shape* of the cost difference.
 
 ## Baseline (control plane / fixed)

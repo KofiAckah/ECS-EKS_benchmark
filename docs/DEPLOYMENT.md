@@ -3,14 +3,14 @@
 ## Prerequisites
 - AWS account + credentials (authenticate via your org's workflow before any `terraform`/`aws` call).
 - Terraform ≥ 1.10, AWS CLI v2, Docker, `kubectl`, `kustomize`, `helm`.
-- An AWS region (default `us-east-1`; override with `-var region=...` consistently across modules).
+- An AWS region (default `eu-west-1`; override with `-var region=...` consistently across modules).
 
 ## 0. Remote state (run once)
 ```bash
 terraform -chdir=terraform/bootstrap init
-terraform -chdir=terraform/bootstrap apply -var state_bucket_name=shopnow-tfstate-<unique>
+terraform -chdir=terraform/bootstrap apply -var state_bucket_name=shopnow-tfstate-412381768295-euw1
 cp terraform/backend.hcl.example terraform/backend.hcl
-# edit terraform/backend.hcl → set bucket = shopnow-tfstate-<unique>
+# backend.hcl already points at bucket = shopnow-tfstate-412381768295-euw1
 ```
 State locking uses **S3-native locking** (`use_lockfile = true`, Terraform ≥ 1.10) — no DynamoDB
 table required (one fewer billable resource than the legacy lock pattern).
@@ -27,7 +27,7 @@ terraform -chdir=terraform/ecr apply
 Let CI do this (recommended), or manually:
 ```bash
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-REGION=us-east-1; TAG=$(git rev-parse HEAD)
+REGION=eu-west-1; TAG=$(git rev-parse HEAD)
 REGISTRY=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
 for s in backend frontend; do
@@ -39,14 +39,14 @@ done
 ## 3. ECS (Fargate)
 ```bash
 terraform -chdir=terraform/ecs init -backend-config=../backend.hcl
-terraform -chdir=terraform/ecs apply -var state_bucket=shopnow-tfstate-<unique> -var image_tag=$TAG
+terraform -chdir=terraform/ecs apply -var state_bucket=shopnow-tfstate-412381768295-euw1 -var image_tag=$TAG
 terraform -chdir=terraform/ecs output alb_dns_name      # open this URL
 ```
 
 ## 4. EKS (Fargate)
 ```bash
 terraform -chdir=terraform/eks init -backend-config=../backend.hcl
-terraform -chdir=terraform/eks apply -var state_bucket=shopnow-tfstate-<unique>
+terraform -chdir=terraform/eks apply -var state_bucket=shopnow-tfstate-412381768295-euw1
 aws eks update-kubeconfig --name shopnow-eks --region $REGION
 
 cd kubernetes
