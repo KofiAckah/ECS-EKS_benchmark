@@ -1,0 +1,54 @@
+:root {
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --accent: #38bdf8;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --danger: #f87171;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app { max-width: 920px; margin: 0 auto; padding: 1.5rem; }
+
+header { display: flex; align-items: center; gap: 0.75rem; }
+header h1 { font-size: 1.6rem; }
+
+.badge { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 999px; }
+.cache-hit { background: #14532d; color: #bbf7d0; }
+.cache-miss { background: #7c2d12; color: #fed7aa; }
+
+.dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 1rem 0; }
+.card { background: var(--panel); padding: 1rem; border-radius: 0.75rem; }
+.card-value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+.card-label { font-size: 0.8rem; color: var(--muted); }
+
+.product-form { background: var(--panel); padding: 1rem; border-radius: 0.75rem; margin: 1rem 0; }
+.product-form label { display: block; margin: 0.5rem 0; font-size: 0.85rem; color: var(--muted); }
+.product-form input {
+  display: block; width: 100%; margin-top: 0.25rem; padding: 0.5rem;
+  background: #0b1220; border: 1px solid #334155; border-radius: 0.5rem; color: var(--text);
+}
+.form-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+
+button {
+  background: var(--accent); color: #04293a; border: 0; padding: 0.45rem 0.8rem;
+  border-radius: 0.5rem; font-weight: 600; cursor: pointer;
+}
+button.secondary { background: #475569; color: var(--text); }
+button.danger { background: var(--danger); color: #450a0a; margin-left: 0.4rem; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #334155; }
+th { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; }
+
+.error { background: #7f1d1d; color: #fecaca; padding: 0.6rem; border-radius: 0.5rem; }
+
+@media (max-width: 640px) { .dashboard { grid-template-columns: repeat(2, 1fr); } }

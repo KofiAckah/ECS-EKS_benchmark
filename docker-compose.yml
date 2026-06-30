@@ -1,0 +1,66 @@
+# Local verification of the full 3-tier stack (lab deliverable).
+#   docker compose up --build
+#   → frontend on http://localhost:8080  (Nginx serves React + proxies /api → backend)
+#   → backend  on http://localhost:8081  (direct, for debugging)
+#
+# Same images that run here are what get pushed to ECR and deployed to ECS/EKS.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-shopnow}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-shopnow}
+      POSTGRES_DB: ${DB_NAME:-shopnow}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-shopnow} -d ${DB_NAME:-shopnow}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-shopnow}
+      DB_PASSWORD: ${DB_PASSWORD:-shopnow}
+      DB_NAME: ${DB_NAME:-shopnow}
+      REDIS_URL: redis://redis:6379
+      CACHE_TTL_SECONDS: 30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8081:8080"   # direct access for debugging; not needed by the frontend
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      BACKEND_HOST: backend          # Docker embedded DNS resolves this
+      BACKEND_PORT: 8080
+      DNS_RESOLVER: 127.0.0.11        # Docker's embedded DNS
+    depends_on:
+      - backend
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,76 @@
+name: Deploy (ECS + EKS)
+
+# Runs after CI succeeds on main, or manually. Deploys the SAME git-SHA image to
+# both orchestrators so the benchmark stays fair.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag (git SHA) to deploy
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  PROJECT: shopnow
+
+jobs:
+  deploy:
+    # Only run on a successful CI run (or manual dispatch).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      # ---- ECS: re-register task defs with the new image via Terraform ----
+      - name: Deploy to ECS
+        working-directory: terraform/ecs
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          terraform init -backend-config=../backend.hcl -input=false
+          terraform apply -auto-approve -input=false \
+            -var="state_bucket=${STATE_BUCKET}" \
+            -var="image_tag=${TAG}"
+
+      # ---- EKS: point kustomize at the new image and roll the Deployments ----
+      - name: Configure kubectl
+        run: aws eks update-kubeconfig --name "${PROJECT}-eks" --region "${AWS_REGION}"
+
+      - name: Deploy to EKS
+        working-directory: kubernetes
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          REGISTRY="${ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          kustomize edit set image \
+            "shopnow/backend=${REGISTRY}/${PROJECT}/backend:${TAG}" \
+            "shopnow/frontend=${REGISTRY}/${PROJECT}/frontend:${TAG}"
+          kubectl apply -k .
+          kubectl -n shopnow rollout status deploy/backend --timeout=180s
+          kubectl -n shopnow rollout status deploy/frontend --timeout=180s

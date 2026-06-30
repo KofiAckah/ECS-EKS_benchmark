@@ -1,0 +1,34 @@
+# dependencies / build
+node_modules/
+dist/
+coverage/
+build/
+
+# env & secrets
+.env
+*.env
+!.env.example
+*.pem
+*.tfvars
+!*.example.tfvars
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+.terraform.lock.hcl
+
+# kube / aws local
+kubeconfig*
+.aws/
+
+# os / editor
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# claude code local (personal) settings — keep out of the repo
+.claude/settings.local.json
+.claude/plans/

@@ -1,0 +1,28 @@
+Requirements
+
+Code Quality
+Focuses on clean, maintainable, and well-structured code that adheres to industry standards and best practices.
+
+Security Practices
+Evaluates the application of secure coding principles, data protection, and proactive risk mitigation strategies.
+
+Testing
+Assesses the design and execution of tests (unit, integration, etc.) to ensure solution reliability and bug prevention.
+
+Tool Dexterity
+Looks at the proficiency and adaptability in utilizing relevant tools, frameworks, and technologies efficiently.
+
+Solution Design
+Examines the capability to create scalable, robust, and practical architectures that meet technical and business needs.
+
+Cost Optimization
+Reviews the effectiveness of the solution in managing resources efficiently and minimizing unnecessary operational costs.
+
+DevOps Practices
+Focuses on deployment strategies, use of version control, automation, CI/CD pipelines, and operational excellence.
+
+Structure, Quality and Documentation
+Evaluates the clarity of technical reporting, version control usage, and the comprehensiveness of documentation.
+
+Problem Solving Approach
+Assesses the ability to analyze complex problems, develop effective solutions, and articulate design decisions.

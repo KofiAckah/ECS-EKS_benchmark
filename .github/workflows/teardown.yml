@@ -1,0 +1,45 @@
+name: Teardown
+
+# Manual-only cost guard: destroys the live infrastructure. Run this between
+# work sessions — the EKS control plane and NAT Gateway bill while they exist.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "destroy" to confirm
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+
+jobs:
+  destroy:
+    if: ${{ inputs.confirm == 'destroy' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+
+      # Destroy in reverse dependency order: workloads first, network last.
+      # ecs/eks need state_bucket (they read network state); ecr/network don't.
+      - name: Destroy modules
+        run: |
+          for m in eks ecs ecr network; do
+            echo "::group::destroy $m"
+            terraform -chdir=terraform/$m init -backend-config=../backend.hcl -input=false
+            case "$m" in
+              ecs|eks) VARS="-var=state_bucket=${STATE_BUCKET}" ;;
+              *)       VARS="" ;;
+            esac
+            terraform -chdir=terraform/$m destroy -auto-approve -input=false $VARS || true
+            echo "::endgroup::"
+          done

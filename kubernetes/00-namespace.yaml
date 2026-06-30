@@ -1,0 +1,8 @@
+# Namespace is also created by Terraform (so it is covered by the Fargate
+# profile). Kept here too so `kubectl apply -k kubernetes/` is self-contained.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shopnow
+  labels:
+    app.kubernetes.io/part-of: shopnow

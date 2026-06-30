@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# OIDC: GitHub mints a short-lived token assumed by an AWS IAM role. No static
+# access keys are ever stored in the repo.
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  PROJECT: shopnow
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm', cache-dependency-path: backend/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm', cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: fmt check
+        run: terraform fmt -recursive -check
+      - name: validate each module
+        run: |
+          for m in bootstrap network ecr ecs eks; do
+            echo "::group::validate $m"
+            terraform -chdir=terraform/$m init -backend=false -input=false
+            terraform -chdir=terraform/$m validate
+            echo "::endgroup::"
+          done
+
+  build-push:
+    needs: [test-backend, test-frontend, terraform-validate]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build & push (immutable SHA tag, same digest used by ECS and EKS)
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: |
+          for svc in backend frontend; do
+            IMAGE="$REGISTRY/$PROJECT/$svc:$TAG"
+            docker build -t "$IMAGE" "./$svc"
+            docker push "$IMAGE"
+            echo "pushed $IMAGE"
+          done

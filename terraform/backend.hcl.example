@@ -1,0 +1,13 @@
+# Shared remote-state backend config. Copy to backend.hcl and edit the bucket
+# name (must be globally unique — created by terraform/bootstrap).
+#
+# Each module sets only its own `key` in backend.tf; everything else is supplied
+# here so it stays DRY:
+#   terraform -chdir=terraform/network init -backend-config=../backend.hcl
+#
+# Uses S3-native state locking (use_lockfile, Terraform >= 1.10) — no DynamoDB
+# table needed, which removes a billable resource vs the legacy lock pattern.
+bucket       = "shopnow-tfstate-CHANGE-ME-123456"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

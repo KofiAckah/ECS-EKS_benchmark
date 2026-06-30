@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 00-namespace.yaml
+  - 01-config-and-secret.yaml
+  - 02-data.yaml
+  - 03-backend.yaml
+  - 04-frontend.yaml
+
+# CI rewrites these to the ECR repo + git SHA so the SAME image digest that ran
+# on ECS runs here:
+#   kustomize edit set image shopnow/backend=<acct>.dkr.ecr.<region>.amazonaws.com/shopnow/backend:<sha>
+#   kustomize edit set image shopnow/frontend=<acct>.dkr.ecr.<region>.amazonaws.com/shopnow/frontend:<sha>
+images:
+  - name: shopnow/backend
+    newTag: latest
+  - name: shopnow/frontend
+    newTag: latest
