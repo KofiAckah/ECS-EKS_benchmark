@@ -18,6 +18,7 @@ build/
 *.tfstate.*
 crash.log
 .terraform.lock.hcl
+backend.hcl
 
 # kube / aws local
 kubeconfig*
